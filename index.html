@@ -4,6 +4,9 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Multi-Artboard Layout Generator</title>
+      <!-- Performance optimizations -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="dns-prefetch" href="https://fonts.googleapis.com">
   <style>
     * {
       margin: 0;
@@ -362,6 +365,36 @@
       cursor: pointer;
       flex: 1;
     }
+
+            /* === PERFORMANCE OPTIMIZATIONS === */
+        
+        /* Canvas rendering optimization */
+        #previewCanvas {
+            will-change: contents;
+            transform: translateZ(0);
+            image-rendering: -webkit-optimize-contrast;
+        }
+        
+        /* Content visibility for off-screen sections */
+        .section {
+            content-visibility: auto;
+            contain-intrinsic-size: 0 500px;
+        }
+        
+        /* Optimize form controls rendering */
+        input[type="text"],
+        input[type="color"],
+        input[type="range"],
+        textarea,
+        select {
+            will-change: auto;
+        }
+        
+        /* Smooth scrolling with GPU acceleration */
+        .panel-content {
+            transform: translateZ(0);
+            -webkit-overflow-scrolling: touch;
+        }
   </style>
 </head>
 <body>
@@ -793,6 +826,80 @@
     </div>
   </div>
 
+
+      <script>
+        // ===== PERFORMANCE OPTIMIZATIONS =====
+        
+        // Debounce function to reduce unnecessary re-renders
+        function debounce(func, wait = 150) {
+            let timeout;
+            return function executedFunction(...args) {
+                const later = () => {
+                    clearTimeout(timeout);
+                    func.apply(this, args);
+                };
+                clearTimeout(timeout);
+                timeout = setTimeout(later, wait);
+            };
+        }
+        
+        // RequestAnimationFrame wrapper for smooth rendering
+        let rafId = null;
+        const originalRenderPreview = window.renderPreview;
+        
+        window.renderPreview = function() {
+            if (rafId) {
+                cancelAnimationFrame(rafId);
+            }
+            rafId = requestAnimationFrame(() => {
+                if (typeof originalRenderPreview === 'function') {
+                    originalRenderPreview.apply(this, arguments);
+                }
+            });
+        };
+        
+        // Offscreen canvas support for export
+        window.useOffscreenCanvas = 'OffscreenCanvas' in window;
+        
+        // Optimized export function with batch processing
+        window.optimizedExport = function(sizes, format = 'png') {
+            const quality = format === 'jpg' ? 0.95 : 1;
+            const batchSize = 3; // Process 3 at a time
+            
+            for (let i = 0; i < sizes.length; i += batchSize) {
+                setTimeout(() => {
+                    const batch = sizes.slice(i, i + batchSize);
+                    batch.forEach((size, index) => {
+                        const canvas = document.createElement('canvas');
+                        renderSingleExport(canvas, size.width, size.height);
+                        const link = document.createElement('a');
+                        link.download = `${state.namePrefix}-${i + index + 1}.${format}`;
+                        link.href = canvas.toDataURL(`image/${format}`, quality);
+                        link.click();
+                    });
+                }, (i / batchSize) * 100);
+            }
+        };
+        
+        // Memory optimization - clear canvas properly
+        window.clearCanvas = function(canvas) {
+            const ctx = canvas.getContext('2d');
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+            canvas.width = canvas.width; // Reset canvas
+        };
+        
+        // Preload images optimization
+        window.preloadImage = function(src) {
+            return new Promise((resolve, reject) => {
+                const img = new Image();
+                img.onload = () => resolve(img);
+                img.onerror = reject;
+                img.src = src;
+            });
+        };
+        
+        console.log('🚀 Performance optimizations loaded');
+    </script>
   <script src="app.js"></script>
 </body>
 </html>
